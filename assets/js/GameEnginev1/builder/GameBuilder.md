@@ -58,10 +58,10 @@ permalink: /gamebuilder
     (function(){
         try {
             const s = document.createElement('script');
-            s.src = "{{ site.baseurl }}/assets/js/GameEnginev1/builder/templates.js";
+            s.src = window.location.origin + './templates.js';
             s.defer = true;
             document.head.appendChild(s);
-        } catch (e) { console.error('GameTemplatesV1 loader failed, falling back to builtin templates', e); }
+        } catch (e) { console.warn('Could not load GameTemplatesV1', e); }
     })();
 </script>
 
@@ -1197,28 +1197,29 @@ function player_extract(ui, p) {
  * @param {String} name - Variable name for the player data
  * @returns {Object} { def: string, classEntry: string } - Player definition and class entry
  */
-function player_code(px, p, name = "playerData" ) {
-    // Use external template if available
-    try {
-        if (window && window.GameTemplatesV1 && typeof window.GameTemplatesV1.playerData === 'function') {
-            try {
-                const tpl = window.GameTemplatesV1.playerData({ name: px.name || 'player', p: p || {}, ui: ui, keypress: px.keypress, bg: (assets && assets.bg && assets[ui.bg?.value]) || null });
-                return { def: tpl, classEntry: `{ class: Player, data: ${name} }` };
-            } catch (e) {
-                console.error('GameTemplatesV1.playerData failed, falling back to builtin player generator', e);
-            }
-        } else {
-            if (typeof window !== 'undefined' && !window.GameTemplatesV1) console.error('GameTemplatesV1 is undefined; using builtin player generator');
-        }
-    } catch (e) { console.error('player_code runtime guard error', e); }
+function player_code(px, name = "playerData" ) {
 
-    // Minimal fallback: keep essential fields only (templates should be primary)
     const def = `
         const ${name} = {
-            id: '${px.name || name}',
+            id: '${name}',
             src: ${px.pSrcVal},
-            INIT_POSITION: { x: ${px.initX}, y: ${px.initY} }
-        };`;
+            SCALE_FACTOR: ${px.pScaleVal},
+            STEP_FACTOR: ${px.pStepVal},
+            ANIMATION_RATE: ${px.pAnimVal},
+            INIT_POSITION: { x: ${px.initX}, y: ${px.initY} },
+            pixels: { height: ${px.pixelsH}, width: ${px.pixelsW} },
+            orientation: { rows: ${px.pRowsVal}, columns: ${px.pColsVal} },
+            down: { row: ${px.dRow}, start: 0, columns: ${px.dirCols} },
+            downRight: { row: ${px.drRow}, start: 0, columns: ${px.dirCols}, rotate: Math.PI/16 },
+            downLeft: { row: ${px.dlRow}, start: 0, columns: ${px.dirCols}, rotate: -Math.PI/16 },
+            left: { row: ${px.lRow}, start: 0, columns: ${px.dirCols} },
+            right: { row: ${px.rRow}, start: 0, columns: ${px.dirCols} },
+            up: { row: ${px.uRow}, start: 0, columns: ${px.dirCols} },
+            upLeft: { row: ${px.ulRow}, start: 0, columns: ${px.dirCols}, rotate: Math.PI/16 },
+            upRight: { row: ${px.urRow}, start: 0, columns: ${px.dirCols}, rotate: -Math.PI/16 },
+            hitbox: { widthPercentage: ${px.hbW}, heightPercentage: ${px.hbH} },
+            keypress: ${px.keypress}
+            };`;
 
     const classEntry = `{ class: Player, data: ${name} }`;
 
@@ -1264,8 +1265,7 @@ function npc_extract(slot, assets) {
         pixelsH: nSprite.h || 0,
         pixelsW: nSprite.w || 0,
         rows: nRows,
-        cols: nCols,
-        nSprite: nSprite
+        cols: nCols
     };
 }
 
@@ -1289,27 +1289,29 @@ function npc_code(nx, index, includeAlert = false) {
                 }
             }`
         : `function() { if (this.dialogueSystem) { this.showRandomDialogue(); } }`;
-    // Try external templates first
-    try {
-        if (window && window.GameTemplatesV1 && typeof window.GameTemplatesV1.npcData === 'function') {
-            try {
-                const tpl = window.GameTemplatesV1.npcData({ index: index, nId: nx.id, nMsg: nx.greeting, nSprite: nx.nSprite || { src: '', h: nx.pixelsH, w: nx.pixelsW, rows: nx.rows, cols: nx.cols }, nX: nx.initX, nY: nx.initY });
-                return { def: tpl, classEntry: `{ class: Npc, data: npcData${index} }` };
-            } catch (e) {
-                console.error('GameTemplatesV1.npcData failed, falling back to builtin npc generator', e);
-            }
-        } else {
-            if (typeof window !== 'undefined' && !window.GameTemplatesV1) console.error('GameTemplatesV1 is undefined; using builtin NPC generator');
-        }
-    } catch (e) { console.error('npc_code runtime guard error', e); }
 
-    // Minimal fallback: essential NPC fields only
     const def = `
         const ${varName} = {
             id: '${nx.id}',
             greeting: '${nx.greeting}',
             src: ${nx.srcVal},
-            INIT_POSITION: { x: ${nx.initX}, y: ${nx.initY} }
+            SCALE_FACTOR: ${nx.scaleFactor},
+            ANIMATION_RATE: ${nx.animRate},
+            INIT_POSITION: { x: ${nx.initX}, y: ${nx.initY} },
+            pixels: { height: ${nx.pixelsH}, width: ${nx.pixelsW} },
+            orientation: { rows: ${nx.rows}, columns: ${nx.cols} },
+            down: { row: 0, start: 0, columns: 3 },
+            right: { row: Math.min(1, ${nx.rows} - 1), start: 0, columns: 3 },
+            left: { row: Math.min(2, ${nx.rows} - 1), start: 0, columns: 3 },
+            up: { row: Math.min(3, ${nx.rows} - 1), start: 0, columns: 3 },
+            upRight: { row: Math.min(3, ${nx.rows} - 1), start: 0, columns: 3 },
+            downRight: { row: Math.min(1, ${nx.rows} - 1), start: 0, columns: 3 },
+            upLeft: { row: Math.min(2, ${nx.rows} - 1), start: 0, columns: 3 },
+            downLeft: { row: 0, start: 0, columns: 3 },
+            hitbox: { widthPercentage: 0.1, heightPercentage: 0.2 },
+            dialogues: ['${nx.greeting}'],
+            reaction: function() { if (this.dialogueSystem) { this.showReactionDialogue(); } else { console.log(this.greeting); } },
+            interact: ${interactFunc}
         };`;
 
     const classEntry = `{ class: Npc, data: ${varName} }`;
@@ -1400,7 +1402,7 @@ function player_generate(ui, p) {
     if (!p) return { defs: [], classes: [] };
 
     const playerx = player_extract(ui, p);
-    const playerCode = player_code(playerx, p);
+    const playerCode = player_code(playerx);
     const defs = [playerCode.def];
     const classes = [playerCode.classEntry];
 

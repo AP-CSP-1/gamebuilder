@@ -4,7 +4,7 @@
   const tpl = {};
 
   tpl.playerData = function ({ name, p, ui, keypress, bg }) {
-    return `// [TEMPLATE CODE] GameTemplatesV1.playerData\nconst playerData = {
+    return `const playerData = {
             id: '${name}',
             src: ${p.src.startsWith('/') ? "'" + p.src + "'" : "path + \"" + p.src + "\""},
             SCALE_FACTOR: 5,
@@ -27,7 +27,7 @@
   };
 
   tpl.npcData = function ({ index, nId, nMsg, nSprite, nX, nY }) {
-    return `// [TEMPLATE CODE] GameTemplatesV1.npcData\nconst npcData${index} = {
+    return `const npcData${index} = {
             id: '${nId}',
             greeting: '${nMsg}',
             src: path + "${nSprite.src}",
