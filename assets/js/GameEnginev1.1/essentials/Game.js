@@ -167,25 +167,23 @@ class GameCore {
         if (!this.gameControl) return;
         
         try {
-            import('../PauseFeature.js').then(mod => {
-                const PauseFeature = mod.default;
-                const pauseMenuObj = {
-                    gameControl: this.gameControl,
-                    container: null,
-                    options: {}
-                };
-                this.gameControl.pauseFeature = new PauseFeature(pauseMenuObj);
-                
-                // Also initialize ScoreFeature for showing/saving score
-                import('../ScoreFeature.js').then(scoreMod => {
+            // v1.1 stores the pause code in PauseMenu.js (not "PauseFeature").
+            import('./PauseMenu.js').then(mod => {
+                const PauseMenu = mod.default;
+                // PauseMenu expects the gameControl instance directly
+                const pauseMenuInstance = new PauseMenu(this.gameControl, {});
+                this.gameControl.pauseFeature = pauseMenuInstance;
+
+                // Also initialize ScoreFeature using the same pause menu instance.
+                import('../scorefeature.js').then(scoreMod => {
                     const ScoreFeature = scoreMod.default;
-                    this.gameControl.scoreFeature = new ScoreFeature(pauseMenuObj);
+                    this.gameControl.scoreFeature = new ScoreFeature(pauseMenuInstance);
                 }).catch(err => {
                     console.warn('Failed to load ScoreFeature:', err);
                 });
-                
+
             }).catch(err => {
-                console.warn('Failed to load PauseFeature:', err);
+                console.warn('Failed to load PauseMenu:', err);
             });
         } catch (err) {
             console.warn('Error initializing PauseFeature:', err);
@@ -359,19 +357,42 @@ class GameCore {
             }
         }
         
-        // If scoreFeature exists on the active control, toggle the score counter
-        const scoreCtrl = this.getActiveControl();
+        // If scoreFeature exists on the active control, delegate toggling to it.
+        // If a mini-game has set activeGameControl and it lacks the feature, fall
+        // back to the primary gameControl (which is where we originally attached
+        // the ScoreFeature during initialization).
+        let scoreCtrl = this.getActiveControl();
+        if ((!scoreCtrl || !scoreCtrl.scoreFeature) && this.gameControl && this.gameControl.scoreFeature) {
+            // debug info: active control didn't have feature, using root
+            console.debug('Active control missing scoreFeature – using root gameControl');
+            scoreCtrl = this.gameControl;
+        }
+
         if (scoreCtrl && scoreCtrl.scoreFeature) {
-            const scoreCounter = document.querySelector('.pause-score-counter');
-            if (scoreCounter) {
-                const isVisible = scoreCounter.style.display !== 'none';
-                scoreCounter.style.display = isVisible ? 'none' : 'block';
-            }
-            if (typeof scoreCtrl.toggleScoreDisplay === 'function') {
-                scoreCtrl.toggleScoreDisplay();
+            // prefer feature method, fallback to direct DOM toggle for safety
+            if (typeof scoreCtrl.scoreFeature.toggleScoreDisplay === 'function') {
+                scoreCtrl.scoreFeature.toggleScoreDisplay();
+            } else {
+                const scoreCounter = document.querySelector('.pause-score-counter');
+                if (scoreCounter) {
+                    const isVisible = scoreCounter.style.display !== 'none';
+                    scoreCounter.style.display = isVisible ? 'none' : 'block';
+                }
             }
         } else {
-            console.warn('ScoreFeature not initialized on active control');
+            // if no feature yet, attempt to load it right now and toggle afterwards
+            console.warn('ScoreFeature missing; attempting to lazy‐load');
+            import('../scorefeature.js')
+                .then(scoreMod => {
+                    const ScoreFeature = scoreMod.default;
+                    const pauseMenuObj = { gameControl: this.gameControl, container: null, options: {} };
+                    this.gameControl.scoreFeature = new ScoreFeature(pauseMenuObj);
+                    // call toggle recursively now that it's available
+                    if (this.gameControl.scoreFeature && typeof this.gameControl.scoreFeature.toggleScoreDisplay === 'function') {
+                        this.gameControl.scoreFeature.toggleScoreDisplay();
+                    }
+                })
+                .catch(err => console.error('Lazy load of ScoreFeature failed:', err));
         }
     }
 

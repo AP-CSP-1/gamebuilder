@@ -5,9 +5,15 @@ export default class ScoreFeature {
     constructor(pauseMenu, scoreSettings = null) {
         this.pauseMenu = pauseMenu;
         this.scoreSettings = scoreSettings || null;
+        this.isVisible = false;            // track current visibility state
         this._loadScoreSettings();
         this._createScoreCounter();
         this._setupAutoUpdate();
+
+        // if the pauseMenu has a gameControl, make it easier to toggle from elsewhere
+        if (this.pauseMenu.gameControl) {
+            this.pauseMenu.gameControl.toggleScoreDisplay = () => this.toggleScoreDisplay();
+        }
     }
 
     /**
@@ -94,6 +100,7 @@ export default class ScoreFeature {
         
         this._scoreValue = scoreValue;
         this._scoreLabel = scoreLabel;
+        this._scoreCounter = scoreCounter;   // keep reference for toggle
     }
 
     /**
@@ -127,6 +134,15 @@ export default class ScoreFeature {
         const currentValue = stats[varName] || this.pauseMenu.gameControl[varName] || 0;
         
         this.updateScoreDisplay(currentValue);
+    }
+
+    /**
+     * Toggle visibility of the score counter
+     */
+    toggleScoreDisplay() {
+        if (!this._scoreCounter) return;
+        this.isVisible = !this.isVisible;
+        this._scoreCounter.style.display = this.isVisible ? 'block' : 'none';
     }
 
     /**
